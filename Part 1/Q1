@@ -214,7 +214,7 @@ for j in range(len(Radis)):
         T_avg_sim.append(((N_colisions)/T_total/Natoms)**(-1))
     else:
         Col_sec_sim.append(0)  
-        T_avg_sim.append(0) 
+        T_avg_sim.append(0.07) 
 plt.plot(Radis,Col_sec_sim)
 plt.plot(Radis,Col_sec_teo)
 plt.show()
