@@ -9,7 +9,7 @@ import statistics
 
 win = 500
 
-Natoms = 200  # change this to have more or fewer atoms
+Natoms = 500  # change this to have more or fewer atoms
 
 # Typical values
 L = 1 # container is a cube L on a side
@@ -227,17 +227,25 @@ for i in range(len(Radis)):
         P.append(I/(A*dt))
         Temps.append(T_total)
     P_mean.append(statistics.mean(P))
-    plt.plot(Temps,P, label = f"Radi={round(Ratom,4)}")
+    if Ratom==0.001:
+        plt.plot(Temps,P, label = f"R={round(Ratom,4)}")
+    else:
+        plt.plot(Temps,P, label = f"R={round(Ratom,3)}")
     print(len(P))
 
 P_teo_list = []
 for i in range(len(Temps)):
     P_teo_list.append(P_teo)
 plt.plot(Temps,P_teo_list,label="Pressió teórica")
-plt.legend()
+
+plt.grid(True)
+plt.legend(fontsize="small")
 plt.title("Pressió en funció del temps per diferents radis")
 plt.show()
 
+
+plt.grid(True)
 plt.plot(Radis,P_mean)
 plt.title("Mitjana de la pressió en funció del radi")
+plt.hlines(P_teo,0,0.1, color='red')
 plt.show()
