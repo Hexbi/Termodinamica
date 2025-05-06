@@ -14,10 +14,18 @@ gray = color.gray(0.7) # color of edges of container
 particleRadius = 0.03 # wildly exaggerated size of helium atom
 mass = 4E-3/6E23 # helium mass
 characteristicTemperature = 33.3 # K
+r_0 = 0.187
 
 #Constants
 k = 1.4E-23 # Boltzmann constant
 pi2 = pi * 2
+
+epsilon = k * characteristicTemperature
+
+#Normalized Variables
+nTemperature = k*temperature/epsilon
+nL = cubeSide / r_0
+nt = (timePerFrame / r_0) * sqrt(epsilon/mass)
 
 # Derived variables
 avgKineticEnergy = sqrt(2*mass*1.5*k*temperature) # average kinetic energy p**2/(2mass) = (3/2)kT
@@ -26,10 +34,8 @@ avgVelocity = sqrt(8*k*temperature/(pi * mass))
 d = cubeSide/2+particleRadius
 volume = d**3
 distanceDiferential = avgVelocity * timePerFrame
-epsilon = k * characteristicTemperature
+distanceDiferential /= r_0
 
-#Normalized Variables
-nTemperature = k*temperature/epsilon
 
 #Control variables
 atoms = np.empty(particleNumber, dtype=sphere)
