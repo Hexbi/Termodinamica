@@ -51,7 +51,7 @@ nhisto = 0 # number of histogram snapshots to average
 
 #PARAMETRES ANDERSEN TERMOSTAT
 
-nu = 500 #Frequència on es canvia el moment
+nu = 5000 #Frequència on es canvia el moment
 A = 6*L**2 #Area del cub
 P_mean = []
 
