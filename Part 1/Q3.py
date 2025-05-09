@@ -1,16 +1,23 @@
+
 from vpython import *
-import numpy as np
-import matplotlib.pyplot as plt
 import random
-import statistics
+
+# Hard-sphere gas.
+
+# Bruce Sherwood
+
+
+
 # Hard-sphere gas.
 
 # Bruce Sherwood
 
 win = 500
 
-Natoms = 500  # change this to have more or fewer atoms
 
+
+Natoms = 500  # change this to have more or fewer atoms
+graph2 = graph(title='Pressió en funció del temps', xtitle='Temps', ytitle='Pressió')
 # Typical values
 L = 1 # container is a cube L on a side
 gray = color.gray(0.7) # color of edges of container
@@ -18,23 +25,16 @@ mass = 4E-3/6E23 # helium mass
 Ratom = 0.03 # wildly exaggerated size of helium atom
 k = 1.4E-23 # Boltzmann constant
 T = 300 # around room temperature
-dt = 1E-5
-dx=0.01*L
+dt = 5*1E-5
+
 
 R0 =  0.001
 Radis = []
 
 for i in range(10):
-    Radis.append(R0+i*R0*10)
+    Radis.append(R0+i*0.001*10)
 
 
-def interchange(v1, v2):  # remove from v1 bar, add to v2 bar
-    barx1 = barx(v1)
-    barx2 = barx(v2)
-    if barx1 == barx2:  return
-    if barx1 >= len(histo) or barx2 >= len(histo): return
-    histo[barx1] -= 1
-    histo[barx2] += 1
     
 def checkCollisions():
     hitlist = []
@@ -49,28 +49,27 @@ def checkCollisions():
     return hitlist
 
 nhisto = 0 # number of histogram snapshots to average
-
-#PARAMETRES ANDERSEN TERMOSTAT
-
-nu = 5000 #Frequència on es canvia el moment
-A = 6*L**2 #Area del cub
-P_mean = []
-L_mobil = L/2
-
+Volum=[]
 
 for i in range(len(Radis)):
+    P_mean=[]
+    L_mobil = L/2
+    Volum = []
+    Volum2 = []
+    P_ext = 0.3*1E-17
+    P_teo = P_ext
+    P_int = []
+
     Ratom = Radis[i]
-    animation = canvas( width=win, height=win, align='left')
+   
+    animation = canvas( width=1, height=1, align='left')
     animation.range = L
-    animation.title = 'A "hard-sphere" gas'
-    s = """  Theoretical and averaged speed distributions (meters/sec).
-    Initially all atoms have the same speed, but collisions
-    change the speeds of the colliding atoms. One of the atoms is
-    marked and leaves a trail so you can follow its path.
-    
+    animation.title = 'Gas'
+    s = """  T
+      
     """
     animation.caption = s
-
+    
     d = L/2+Ratom
     r = 0.005
     boxbottom = curve(color=gray, radius=r)
@@ -85,7 +84,7 @@ for i in range(len(Radis)):
     vert2.append([vector(-d,-d,d), vector(-d,d,d)])
     vert3.append([vector(d,-d,d), vector(d,d,d)])
     vert4.append([vector(d,-d,-d), vector(d,d,-d)])
-
+    
     Atoms = []
     p = []
     apos = []
@@ -105,41 +104,56 @@ for i in range(len(Radis)):
         py = pavg*sin(theta)*sin(phi)
         pz = pavg*cos(theta)
         p.append(vector(px,py,pz))
-
+    
     deltav = 100 # binning for v histogram
-
+    
     def barx(v):
         return int(v/deltav) # index into bars array
-
+    
     nhisto = int(4500/deltav)
     histo = []
     for i in range(nhisto): histo.append(0.0)
     histo[barx(pavg/mass)] = Natoms
-
-    gg = graph( width=win, height=0.4*win, xmax=3000, align='left',
+    
+    gg = graph( width=1, height=0.4, xmax=3000, align='left',
         xtitle='speed, m/s', ytitle='Number of atoms', ymax=Natoms*deltav/1000)
-
+    
     theory = gcurve( color=color.blue, width=2 )
     dv = 10
     for v in range(0,3001+dv,dv):  # theoretical prediction
         theory.plot( v, (deltav/dv)*Natoms*4*pi*((mass/(2*pi*k*T))**1.5) *exp(-0.5*mass*(v**2)/(k*T))*(v**2)*dv )
-
+    
     accum = []
     for i in range(int(3000/deltav)): accum.append([deltav*(i+.5),0])
     vdist = gvbars(color=color.red, delta=deltav )
+    
+    def interchange(v1, v2):  # remove from v1 bar, add to v2 bar
+        barx1 = barx(v1)
+        barx2 = barx(v2)
+        if barx1 == barx2:  return
+        if barx1 >= len(histo) or barx2 >= len(histo): return
+        histo[barx1] -= 1
+        histo[barx2] += 1
+        
 
-
-
-    P_teo = Natoms*k*T/L**3
-    P_int = []
-    P_ext = 0.5
-
-    T_total = 0
-    Temps = []
-
-
-
-    while T_total<0.001:
+        
+    def checkCollisions():
+        hitlist = []
+        r2 = 2*Ratom
+        r2 *= r2
+        for i in range(Natoms):
+            ai = apos[i]
+            for j in range(i) :
+                aj = apos[j]
+                dr = ai - aj
+                if mag2(dr) < r2: hitlist.append([i,j])
+        return hitlist
+    
+    nhisto = 0 # number of histogram snapshots to average
+    T_total=0
+    Temps2= []
+    Temps=[]
+    while T_total<0.1:
         rate(300)
         I = 0
         T_total += dt
@@ -148,13 +162,13 @@ for i in range(len(Radis)):
         if nhisto % 10 == 0:
             vdist.data = accum
         nhisto += 1
-
+    
         # Update all positions
         for i in range(Natoms): Atoms[i].pos = apos[i] = apos[i] + (p[i]/mass)*dt
         
         # Check for collisions
         hitlist = checkCollisions()
-
+    
         # If any collisions took place, update momenta of the two atoms
         for ij in hitlist:
             i = ij[0]
@@ -195,75 +209,91 @@ for i in range(len(Radis)):
             interchange(vj.mag, p[j].mag/mass)
         
         #This checks for colisions against the walls
-        if len(P_int)>0 and P_ext>P_int[len(P_int)-1]:
-            L_mobil= L_mobil-dx
-        else:
-            L_mobil += dx
+   #     if len(P_int)>0 and P_ext>P_int[len(P_int)-1]:
+#            L_mobil= L_mobil-dx
+#        else len(P_int)>0 and P_ext<P_int[len(P_int)-1]:
+#            L_mobil= L_mobil+dx
         
         
         for i in range(Natoms):
             loc = apos[i]
-            if loc.x > L_mobil:
-                if loc.x < 0: 
-                    p[i].x =  abs(p[i].x)
-                    I += 2* abs(p[i].x) #Aquest terme s'aegeix per afegir el canvi de moment a causa de la col·lisió
-                else: 
-                    p[i].x =  -abs(p[i].x)
-                    I += 2* abs(p[i].x)
+            if loc.x > L_mobil:#Aquest terme s'aegeix per afegir el canvi de moment a causa de la col·lisió
+                p[i].x =  -abs(p[i].x)
+                I += 2* abs(p[i].x)
             
             if loc.x < -L/2:
-                if loc.x < 0: 
-                    p[i].x =  abs(p[i].x)
-                    I += 2* abs(p[i].x) #Aquest terme s'aegeix per afegir el canvi de moment a causa de la col·lisió
-                else: 
-                    p[i].x =  -abs(p[i].x)
-                    I += 2* abs(p[i].x)
-            
+                p[i].x =  abs(p[i].x)
+                I += 2* abs(p[i].x) #Aquest terme s'aegeix per afegir el canvi de moment a causa de la col·lisió            
             
             if abs(loc.y) > L/2:
                 if loc.y < 0: 
                     p[i].y = abs(p[i].y)
-                    I += 2* abs(p[i].x)
+                    I += 2* abs(p[i].y)
                 else: 
                     p[i].y =  -abs(p[i].y)
-                    I += 2* abs(p[i].x)
+                    I += 2* abs(p[i].y)
             
             if abs(loc.z) > L/2:
                 if loc.z < 0: 
                     p[i].z =  abs(p[i].z)
-                    I += 2* abs(p[i].x)
+                    I += 2* abs(p[i].z)
                 else: 
                     p[i].z =  -abs(p[i].z)
-                    I += 2* abs(p[i].x)
+                    I += 2* abs(p[i].z)
         
-        for i in range(Natoms):
-        # THERMOSTAT
-            if random.random() < nu*dt:
-                sigma = sqrt(k*T/mass)
-                mu = 0
-                p[i].x = mass * random.gauss(mu,sigma)   #CHECK
-                p[i].y  =  mass * random.gauss(mu,sigma)  
-                p[i].z = mass *   random.gauss(mu,sigma)
+        A = (2*L**2+4*(L_mobil+L/2)*L)
         P_int.append(I/(A*dt))
+    
+        if len(P_int)==50:
+            Temps2.append(T_total)
+            sum=0
+            for i in range(10):
+                sum+=P_int[i]
+            
+            P_mean.append(sum/10)
+            P_int=[]
+        
+        dx2=0.0005*L
+        if len(P_int)>0 and P_ext>P_int[len(P_int)-1]:
+            L_mobil= L_mobil-dx2
+        else:
+            L_mobil= L_mobil+dx2
+            
         Temps.append(T_total)
-    P_mean.append(statistics.mean(P))
-    plt.plot(Temps,P, label = f"R={round(Ratom,4)}")
+        Volum.append((L_mobil+1/2))
+        #print(Volum)
+    f1 = gcurve(graph=graph2, color=vec(random.random(),random.random(),random.random()),label = f"R={round(Ratom, 4)}")
+    for x, y in zip(Temps2, P_mean):
+        f1.plot(x, y)
+    #plt.plot(Temps,P_int, label = f"R={round(Ratom,4)}")
 
-    print(len(P_int))
+    Volum2.append(Volum[len(Volum)-1])
+    print(Volum[len(Volum)-1])
 
 P_teo_list = []
 for i in range(len(Temps)):
     P_teo_list.append(P_teo)
-plt.plot(Temps,P_teo_list,label="Pressió teórica")
-
-plt.grid(True)
-plt.legend(fontsize="small")
-plt.title("Pressió en funció del temps per diferents radis")
-plt.show()
 
 
-plt.grid(True)
-plt.plot(Radis,P_mean)
-plt.title("Mitjana de la pressió en funció del radi")
-plt.hlines(P_teo,0,0.1, color='red')
-plt.show()
+
+#Create a curve to plot points
+f3 = gcurve(graph=graph2,color=color.red)
+
+
+#Plot the points
+for x, y in zip(Temps, P_teo_list):
+    f3.plot(x, y)
+    
+graph3 = graph(title='Volum final en funció del radi', xtitle='Radi (m)', ytitle='Volum (m^3)')
+f4 = gcurve(graph=graph3,color=color.red)
+for x, y in zip(Radis, Volum2):
+    f4.plot(x, y)
+
+
+#plt.plot(Temps,P_teo_list,label="Pressió teórica")
+
+#plt.grid(True)
+#plt.legend(fontsize="small")
+#plt.title("Pressió en funció del temps per diferents radis")
+#plt.show()
+

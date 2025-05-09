@@ -1,13 +1,23 @@
+
 from vpython import *
-import numpy as np
-import matplotlib.pyplot as plt
+
 import random
-import statistics
+
 # Hard-sphere gas.
 
 # Bruce Sherwood
 
 win = 500
+
+
+def gaussian(mu, sigma):
+    u1 = random.random()
+    u2 = random.random()
+    z0 = sqrt(-2.0 * log(u1)) * cos(2 * pi * u2)
+    return mu + z0 * sigma
+
+
+
 
 Natoms = 500  # change this to have more or fewer atoms
 
@@ -18,14 +28,23 @@ mass = 4E-3/6E23 # helium mass
 Ratom = 0.03 # wildly exaggerated size of helium atom
 k = 1.4E-23 # Boltzmann constant
 T = 300 # around room temperature
+T_termo = 600
 dt = 1E-5
 
 R0 =  0.001
 Radis = []
 
+graph1 = graph(title="Pressió en funció del temps per diferents radis",
+               xtitle='Temps (s)', ytitle='Pressió (Pa)',
+               width=600, height=400, align='below')
+
 for i in range(10):
     Radis.append(R0+i*R0*10)
 
+deltav = 100 # binning for v histogram
+
+def barx(v):
+    return int(v/deltav) # index into bars array
 
 def interchange(v1, v2):  # remove from v1 bar, add to v2 bar
     barx1 = barx(v1)
@@ -51,19 +70,17 @@ nhisto = 0 # number of histogram snapshots to average
 
 #PARAMETRES ANDERSEN TERMOSTAT
 
-nu = 5000 #Frequència on es canvia el moment
+nu = 50000 #Frequència on es canvia el moment
 A = 6*L**2 #Area del cub
 P_mean = []
 
 for i in range(len(Radis)):
+
     Ratom = Radis[i]
-    animation = canvas( width=win, height=win, align='left')
+    animation = canvas( width=1, height=1, align='right')
     animation.range = L
     animation.title = 'A "hard-sphere" gas'
-    s = """  Theoretical and averaged speed distributions (meters/sec).
-    Initially all atoms have the same speed, but collisions
-    change the speeds of the colliding atoms. One of the atoms is
-    marked and leaves a trail so you can follow its path.
+    s = """  .
     
     """
     animation.caption = s
@@ -113,7 +130,7 @@ for i in range(len(Radis)):
     for i in range(nhisto): histo.append(0.0)
     histo[barx(pavg/mass)] = Natoms
 
-    gg = graph( width=win, height=0.4*win, xmax=3000, align='left',
+    gg = graph( width=0.4, height=0.4, xmax=3000, align='right',
         xtitle='speed, m/s', ytitle='Number of atoms', ymax=Natoms*deltav/1000)
 
     theory = gcurve( color=color.blue, width=2 )
@@ -126,15 +143,16 @@ for i in range(len(Radis)):
     vdist = gvbars(color=color.red, delta=deltav )
 
 
-
-    P_teo = Natoms*k*T/L**3
+    P_teo_in=Natoms*k*T/L**3
+    P_teo = Natoms*k*T_termo/L**3
     P = []
     T_total = 0
     Temps = []
 
 
 
-    while T_total<0.001:
+    while T_total<0.01:
+
         rate(300)
         I = 0
         T_total += dt
@@ -198,54 +216,77 @@ for i in range(len(Radis)):
                     I += 2* abs(p[i].x) #Aquest terme s'aegeix per afegir el canvi de moment a causa de la col·lisió
                 else: 
                     p[i].x =  -abs(p[i].x)
-                    I += 2* abs(p[i].x)
+                    I +=  2*abs(p[i].x)
             
             if abs(loc.y) > L/2:
                 if loc.y < 0: 
                     p[i].y = abs(p[i].y)
-                    I += 2* abs(p[i].x)
+                    I +=  2*abs(p[i].y)
                 else: 
                     p[i].y =  -abs(p[i].y)
-                    I += 2* abs(p[i].x)
+                    I +=  2*abs(p[i].y)
             
             if abs(loc.z) > L/2:
                 if loc.z < 0: 
                     p[i].z =  abs(p[i].z)
-                    I += 2* abs(p[i].x)
+                    I +=  2*abs(p[i].z)
                 else: 
                     p[i].z =  -abs(p[i].z)
-                    I += 2* abs(p[i].x)
-        
+                    I +=  2*abs(p[i].z)
+        e=2.71828
+        nu=500
+        sigma_v = sqrt(k * T_termo / mass)
         for i in range(Natoms):
         # THERMOSTAT
             if random.random() < nu*dt:
-                sigma = sqrt(k*T/mass)
+                sigma = sqrt(k*T_termo/mass)
                 mu = 0
-                p[i].x = mass * random.gauss(mu,sigma)   #CHECK
-                p[i].y  =  mass * random.gauss(mu,sigma)  
-                p[i].z = mass *   random.gauss(mu,sigma)
+                p[i].x = mass * gaussian(0,sigma_v)
+                p[i].y  =  mass * gaussian(0,sigma_v)
+                p[i].z = mass *  gaussian(0,sigma_v)
+
         P.append(I/(A*dt))
         Temps.append(T_total)
-    P_mean.append(statistics.mean(P))
-    if Ratom==0.001:
-        plt.plot(Temps,P, label = f"R={round(Ratom,4)}")
-    else:
-        plt.plot(Temps,P, label = f"R={round(Ratom,3)}")
-    print(len(P))
 
+
+
+
+    # Plot data for Ratom
+    if Ratom == 0.001:
+        label = f"R={round(Ratom, 4)}m"
+    else:
+        label = f"R={round(Ratom, 3)}m"
+    f1 = gcurve(graph=graph1, color=vec(random.random(),random.random(),random.random()),label=label)
+    for t, p in zip(Temps, P):
+        f1.plot(t, p)
+
+P_teo_in_list = []
 P_teo_list = []
+
 for i in range(len(Temps)):
     P_teo_list.append(P_teo)
-plt.plot(Temps,P_teo_list,label="Pressió teórica")
+for i in range(len(Temps)):
+    P_teo_in_list.append(P_teo_in)
 
-plt.grid(True)
-plt.legend(fontsize="small")
-plt.title("Pressió en funció del temps per diferents radis")
-plt.show()
+# Plot theoretical pressure
+f2 = gcurve(graph=graph1, color=color.red, label="Pressió teórica")
+for t, p_teo in zip(Temps, P_teo_list):
+    f2.plot(t, p_teo)
+#f3 = gcurve(graph=graph1, color=color.blue, label="Pressió teórica inicial")
+#for t, p_teo in zip(Temps, P_teo_in_list):
+#    f3.plot(t, p_teo)
 
+# Create a graph
+graph2 = graph(title="Mitjana de la pressió en funció del radi",#
+               xtitle='Radi', ytitle='Pressió',
+               width=600, height=400)
 
-plt.grid(True)
-plt.plot(Radis,P_mean)
-plt.title("Mitjana de la pressió en funció del radi")
-plt.hlines(P_teo,0,0.1, color='red')
-plt.show()
+# Plot mean pressure vs radius
+#f3 = gcurve(graph=graph2, color=color.blue)
+#for r, p in zip(Radis, P_mean):
+#    f3.plot(r, p)
+
+# Plot theoretical pressure as a horizontal line
+#f4 = gcurve(graph=graph2, color=color.red)
+#f4.plot(0, P_teo)
+#f4.plot(0.1, P_teo)

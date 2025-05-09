@@ -1,7 +1,9 @@
+
+
+
 from vpython import *
-import numpy as np
-import matplotlib.pyplot as plt
-#Web VPython 3.2
+
+
 
 # Hard-sphere gas.
 
@@ -20,17 +22,25 @@ k = 1.4E-23 # Boltzmann constant
 T = 300 # around room temperature
 dt = 1E-5
 
+v_avg=(8*k*T/(mass*pi))**(1/2)
+
+def col_avg(R):
+        return (pi*Natoms**2*(2*R)**2*v_avg/((L**6)*2**(1/2)))
 
 
+R0 =  0.001
 
-
-deltav = 100 # binning for v histogram
+Radis = []
+Col_sec_teo = []
+T_avg_teo =[]
+Col_sec_sim = []
+T_avg_sim =[]
+for i in range(1):
+    Radis.append(R0+i*R0)
 
 def barx(v):
     return int(v/deltav) # index into bars array
-
-
-
+        
 def interchange(v1, v2):  # remove from v1 bar, add to v2 bar
     barx1 = barx(v1)
     barx2 = barx(v2)
@@ -51,67 +61,24 @@ def checkCollisions():
             if mag2(dr) < r2: hitlist.append([i,j])
     return hitlist
 
-nhisto = 100 # number of histogram snapshots to average
-
-R0 =  0.001
-
-Radis = []
-Col_sec_teo = []
-T_avg_teo =[]
-Col_sec_sim = []
-T_avg_sim =[]
-for i in range(50):
-    Radis.append(R0+i*R0*2)
-
 for j in range(len(Radis)):
 
     N_colisions = 0
     T_total = 0
     Ratom = Radis[j]
-    v_avg=np.sqrt(8*k*T/(mass*np.pi))
-    d = L/2+Ratom
-    def col_avg(R,D):
-        return np.sqrt(2)*(R)**2*np.pi*v_avg*Natoms/(D**3)
-    Col_sec_teo.append(col_avg(Ratom,d))
-    T_avg_teo.append((col_avg(Ratom,d))**(-1))
-
-
-    animation = canvas( width=win, height=win, align='left')
+    Col_sec_teo.append(col_avg(Ratom))
+    T_avg_teo.append(1/col_avg(Ratom))
+    animation = canvas( width=1, height=1, align='left')
     animation.range = L
     animation.title = 'A "hard-sphere" gas'
     s = """  Theoretical and averaged speed distributions (meters/sec).
-    Initially all atoms have the same speed, but collisions
-    change the speeds of the colliding atoms. One of the atoms is
-    marked and leaves a trail so you can follow its path.
-    
+      Initially all atoms have the same speed, but collisions
+      change the speeds of the colliding atoms. One of the atoms is
+      marked and leaves a trail so you can follow its path.
+      
     """
     animation.caption = s
-
-
-
-    Atoms = []
-    p = []
-    apos = []
-    pavg = sqrt(2*mass*1.5*k*T) # average kinetic energy p**2/(2mass) = (3/2)kT
-        
-
-    nhisto = int(4500/deltav)
-    histo = []
-    for i in range(nhisto): histo.append(0.0)
-    histo[barx(pavg/mass)] = Natoms
-
-    gg = graph( width=win, height=0.4*win, xmax=3000, align='left',
-        xtitle='speed, m/s', ytitle='Number of atoms', ymax=Natoms*deltav/1000)
-
-    theory = gcurve( color=color.blue, width=2 )
-    dv = 10
-    for v in range(0,3001+dv,dv):  # theoretical prediction
-        theory.plot( v, (deltav/dv)*Natoms*4*pi*((mass/(2*pi*k*T))**1.5) *exp(-0.5*mass*(v**2)/(k*T))*(v**2)*dv )
-
-    accum = []
-    for i in range(int(3000/deltav)): accum.append([deltav*(i+.5),0])
-    vdist = gvbars(color=color.red, delta=deltav )
-
+    
     d = L/2+Ratom
     r = 0.005
     boxbottom = curve(color=gray, radius=r)
@@ -126,6 +93,17 @@ for j in range(len(Radis)):
     vert2.append([vector(-d,-d,d), vector(-d,d,d)])
     vert3.append([vector(d,-d,d), vector(d,d,d)])
     vert4.append([vector(d,-d,-d), vector(d,d,-d)])
+    
+    Atoms = []
+    p = []
+    apos = []
+    pavg = sqrt(2*mass*1.5*k*T) # average kinetic energy p**2/(2mass) = (3/2)kT
+        
+    
+        
+
+
+
 
     for i in range(Natoms):
         x = L*random()-L/2
@@ -141,21 +119,49 @@ for j in range(len(Radis)):
         py = pavg*sin(theta)*sin(phi)
         pz = pavg*cos(theta)
         p.append(vector(px,py,pz))
+    
+    deltav = 100 # binning for v histogram
+    
 
-    while T_total<0.0001:
+    
+    nhisto = int(4500/deltav)
+    histo = []
+    for i in range(nhisto): histo.append(0.0)
+    histo[barx(pavg/mass)] = Natoms
+    
+    gg = graph( width=1, height=0.4, xmax=3000, align='left',
+        xtitle='speed, m/s', ytitle='Number of atoms', ymax=Natoms*deltav/1000)
+    
+    theory = gcurve( color=color.blue, width=2 )
+    dv = 10
+    for v in range(0,3001+dv,dv):  # theoretical prediction
+        theory.plot( v, (deltav/dv)*Natoms*4*pi*((mass/(2*pi*k*T))**1.5) *exp(-0.5*mass*(v**2)/(k*T))*(v**2)*dv )
+    
+    accum = []
+    for i in range(int(3000/deltav)): accum.append([deltav*(i+.5),0])
+    vdist = gvbars(color=color.red, delta=deltav )
+    
+
+    
+
+    nhisto = 0 # number of histogram snapshots to average
+    
+    while T_total<0.5:
         rate(300)
         T_total +=dt
+
         # Accumulate and average histogram snapshots
         for i in range(len(accum)): accum[i][1] = (nhisto*accum[i][1] + histo[i])/(nhisto+1)
         if nhisto % 10 == 0:
             vdist.data = accum
         nhisto += 1
-
+    
         # Update all positions
         for i in range(Natoms): Atoms[i].pos = apos[i] = apos[i] + (p[i]/mass)*dt
         
         # Check for collisions
         hitlist = checkCollisions()
+        #if T_total>0.008:
         N_colisions += len(hitlist)
         # If any collisions took place, update momenta of the two atoms
         for ij in hitlist:
@@ -195,7 +201,7 @@ for j in range(len(Radis)):
             apos[j] = posj+(p[j]/mass)*deltat
             interchange(vi.mag, p[i].mag/mass)
             interchange(vj.mag, p[j].mag/mass)
-
+        
         for i in range(Natoms):
             loc = apos[i]
             if abs(loc.x) > L/2:
@@ -209,15 +215,49 @@ for j in range(len(Radis)):
             if abs(loc.z) > L/2:
                 if loc.z < 0: p[i].z =  abs(p[i].z)
                 else: p[i].z =  -abs(p[i].z)
+        
     if N_colisions>0:
-        Col_sec_sim.append((N_colisions)/T_total/Natoms)  
-        T_avg_sim.append(((N_colisions)/T_total/Natoms)**(-1))
-    else:
-        Col_sec_sim.append(0)  
-        T_avg_sim.append(0.07) 
-plt.plot(Radis,Col_sec_sim)
-plt.plot(Radis,Col_sec_teo)
-plt.show()
-plt.plot(Radis,T_avg_sim)
-plt.plot(Radis,T_avg_teo)
-plt.show()
+        Col_sec_sim.append((N_colisions)/(T_total))  
+        T_avg_sim.append(((T_total)/(N_colisions)))
+
+
+#graph1 = graph(title='Colisions per segon en funció del radi', xtitle='Radi', ytitle='Colisions per segon',xmin=0,xmax=0.1, ymin=0, width=600, height=400)
+
+# Create a curve to plot points
+#f1 = gcurve(graph=graph1,color=color.red)
+#f2 = gcurve(graph=graph1,color=color.blue)
+
+# Plot the points
+#for x, y in zip(Radis, Col_sec_sim):
+#    rate(5)
+#    f1.plot(x, y)
+#for x, y in zip(Radis, Col_sec_teo):
+#    rate(5)
+#    f2.plot(x, y)
+
+graph2 = graph(title='Temps entre colisions en funció del radi', xtitle='Radi', ytitle='Temps entre colisions', xmin=0, ymin=0)
+
+#Create a curve to plot points
+f3 = gcurve(graph=graph2,fast=True,color=color.red,label='Temps simulació')
+f4 = gcurve(graph=graph2,fast=True,color=color.blue,label='Temps teòric')
+
+#Plot the points
+print(T_avg_sim)
+print(T_avg_teo)
+print(abs(T_avg_teo[1]-T_avg_sim[1])/T_avg_teo[1])
+
+for x, y in zip(Radis, T_avg_sim):
+    f3.plot(x, y)
+for x, y in zip(Radis, T_avg_teo):
+    f4.plot(x, y)
+
+error = []
+
+for i in range(len(Radis)):
+    error.append(100*abs(T_avg_sim[i]-T_avg_teo[i])/T_avg_teo[i])
+graph3 = graph(xtitle='Radi', ytitle='Error relatiu (%)', xmin=0, ymin=0)
+f5 = gcurve(graph=graph3,fast=True,color=color.blue)
+
+#Plot the points
+for x, y in zip(Radis, error):
+    f5.plot(x, y)
