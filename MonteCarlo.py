@@ -8,7 +8,7 @@ k_B = 1.38e-23        # Boltzmann constant (SI)
 v_limit = 10          # Initial velocity range. Affects initial distribution, but not long-term behavior under Metropolis.
 T = 300               # Temperature in Kelvin. Controls thermal energy.
 beta = 1 / (k_B * T)  # Inverse thermal energy
-dimensions = 2        # Dimensionality of the system (e.g. 1D, 2D, 3D)
+dimensions = 3        # Dimensionality of the system (e.g. 1D, 2D, 3D)
 
 # Function to compute total kinetic energy of a given microstate
 def total_energy(momentum, mass):
@@ -23,9 +23,9 @@ energy_list = [total_energy(momentum, m)]
 
 # Track iteration count for plotting purposes
 iteration_list = [0]
-
+totalSteps = 5000000
 # Metropolis algorithm: generate new microstates via small random perturbations
-for step in range(5_000_000):
+for step in range(totalSteps):
     idx = np.random.randint(0, N)  # Choose a random particle
 
     # Propose a small velocity change with Gaussian distribution
@@ -85,10 +85,10 @@ print(f"Theoretical heat capacity: {C_v_theoretical:.3e} J/K")
 print(f"Relative error in heat capacity: {C_v_rel_error:.4f}%")
 
 # Plot energy evolution and mark valid states
-plt.plot(iteration_list, energy_list, label="Total energy of each microstate")
+plt.plot(iteration_list, energy_list, color='purple', label="Total energy of each microstate")
 valid_iterations = iteration_list[first_valid_index:]
-plt.plot(valid_iterations, valid_energies, color='green', label="Microstates used for C$_v$")
-plt.axhline(U_theoretical, linestyle='--', color='red', label="Theoretical internal energy")
+plt.plot(valid_iterations, valid_energies, color='blue', label="Microstates used for C$_v$")
+plt.axhline(U_theoretical, linestyle='--', color='orange', label="Theoretical internal energy")
 plt.xlabel("Number of iterations")
 plt.ylabel("Energy (J)")
 plt.grid()
