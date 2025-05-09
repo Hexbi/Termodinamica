@@ -1,152 +1,96 @@
 import numpy as np
-from random import randrange
-from vpython import *
+import matplotlib.pyplot as plt
 
-#System variables
-temperature = 3000 #Kelvin
-particleNumber = 500 
-dimensions = 3 
-cubeSide = 1
-timePerFrame = 1E-5
-gray = color.gray(0.7) # color of edges of container
+# System parameters
+N = 1000              # Number of particles. Larger N improves statistical stability; smaller N causes more energy fluctuations.
+m = 1.67e-27          # Mass of a hydrogen atom (in SI units)
+k_B = 1.38e-23        # Boltzmann constant (SI)
+v_limit = 10          # Initial velocity range. Affects initial distribution, but not long-term behavior under Metropolis.
+T = 300               # Temperature in Kelvin. Controls thermal energy.
+beta = 1 / (k_B * T)  # Inverse thermal energy
+dimensions = 2        # Dimensionality of the system (e.g. 1D, 2D, 3D)
 
-#Particle Variables
-particleRadius = 0.03 # wildly exaggerated size of helium atom
-mass = 4E-3/6E23 # helium mass
-characteristicTemperature = 33.3 # K
-r_0 = 0.187
+# Function to compute total kinetic energy of a given microstate
+def total_energy(momentum, mass):
+    return np.sum(momentum**2) / (2 * mass)
 
-#Constants
-k = 1.4E-23 # Boltzmann constant
-pi2 = pi * 2
+# Initial random velocities for each particle and direction
+velocities = np.random.uniform(low=-v_limit, high=v_limit, size=(N, dimensions))
 
-epsilon = k * characteristicTemperature
+# Initialize list to store the total energy of each microstate
+momentum = m * velocities
+energy_list = [total_energy(momentum, m)]
 
-#Normalized Variables
-nTemperature = k*temperature/epsilon
-nL = cubeSide / r_0
-nt = (timePerFrame / r_0) * sqrt(epsilon/mass)
+# Track iteration count for plotting purposes
+iteration_list = [0]
 
-# Derived variables
-avgKineticEnergy = sqrt(2*mass*1.5*k*temperature) # average kinetic energy p**2/(2mass) = (3/2)kT
-beta = 1/(k*temperature)
-avgVelocity = sqrt(8*k*temperature/(pi * mass))
-d = cubeSide/2+particleRadius
-volume = d**3
-distanceDiferential = avgVelocity * timePerFrame
-distanceDiferential /= r_0
+# Metropolis algorithm: generate new microstates via small random perturbations
+for step in range(5_000_000):
+    idx = np.random.randint(0, N)  # Choose a random particle
 
+    # Propose a small velocity change with Gaussian distribution
+    dv = np.random.normal(loc=0, scale=100, size=dimensions)
 
-#Control variables
-atoms = np.empty(particleNumber, dtype=sphere)
-totalTime = 0
-valid = True
-acceptedMovements = 0
+    velocities[idx, :] += dv
+    momentum = m * velocities
+    new_E = total_energy(momentum, m)
+    old_E = energy_list[-1]
 
-r = 0.005
-boxbottom = curve(color=gray, radius=r)
-boxbottom.append([vector(-d,-d,-d), vector(-d,-d,d), vector(d,-d,d), vector(d,-d,-d), vector(-d,-d,-d)])
-boxtop = curve(color=gray, radius=r)
-boxtop.append([vector(-d,d,-d), vector(-d,d,d), vector(d,d,d), vector(d,d,-d), vector(-d,d,-d)])
-vert1 = curve(color=gray, radius=r)
-vert2 = curve(color=gray, radius=r)
-vert3 = curve(color=gray, radius=r)
-vert4 = curve(color=gray, radius=r)
-vert1.append([vector(-d,-d,-d), vector(-d,d,-d)])
-vert2.append([vector(-d,-d,d), vector(-d,d,d)])
-vert3.append([vector(d,-d,d), vector(d,d,d)])
-vert4.append([vector(d,-d,-d), vector(d,d,-d)])
-
-if dimensions == 1:
-    for i in range(particleNumber):
-        atoms[i] = sphere(pos=(cubeSide * vector(random() - 0.5, 0, 0)), radius=particleRadius, color=gray)
-elif dimensions == 2:
-    for i in range(particleNumber):
-        atoms[i] = sphere(pos=(cubeSide * vector(random() - 0.5, random() - 0.5, 0)), radius=particleRadius, color=gray)
-elif dimensions == 3:
-    for i in range(particleNumber):
-        atoms[i] = sphere(pos=(cubeSide * vector(random() - 0.5, random() - 0.5, random() - 0.5)), radius=particleRadius, color=gray)
-else:
-    valid = False
-    print("ValueError: The variable 'dimensions' can only be 1, 2 or 3.")
-    
-
-def RandomDisplacement(dim):
-    if dim == 1:
-        return distanceDiferential * vector(random.choice([-1, 1]), 0, 0)
-    if dim == 2:
-        polarAngle = np.random.uniform(0, 2 * np.pi)
-        return distanceDiferential * vector(np.cos(polarAngle), np.sin(polarAngle), 0)
-    if dim == 3:
-        polarAngle =  np.random.uniform(0, 2 * np.pi)
-        azimuthalAngle =  np.random.uniform(0, np.pi)
-        return distanceDiferential * vector(np.cos(polarAngle) * np.sin(azimuthalAngle), np.sin(polarAngle) * np.sin(azimuthalAngle), np.cos(azimuthalAngle))
-    return 0
-
-def EnergyWithoutParticleI(gas, index):
-    u = 0
-    for i in range(particleNumber):
-        if i != index:
-            for j in range(i + 1, particleNumber):
-                if j != index and i != j:
-                    a = (1/mag(gas[i].pos - gas[j].pos))**6
-                    u += a * (a - 1)
-    u *= 4
-    return u
-
-def EnergyOnlyParticleI(gas, index):
-    u = 0
-    for i in range(particleNumber):
-        if i != index:
-            a = (1/mag(gas[i].pos - gas[index].pos))**6
-            u += a * (a - 1)
-    u *= 4
-    return u
-
-def TotalEnergy(gas):
-    u = 0
-    for i in range(particleNumber):
-            for j in range(i + 1, particleNumber):
-                if i != j:
-                    a = (1/mag(gas[i].pos - gas[j].pos))**6
-                    u += a * (a - 1)
-    u *= 4
-    return u
-
-
-
-u_i = 0
-u_f = 0
-savePos = np.empty(dimensions, dtype=np.float32)
-halfUsefullSpace = (cubeSide*0.5)-particleRadius
-while valid:
-
-    particle = randrange(particleNumber)  # Choose random particle
-    prevPos = vector(atoms[particle].pos.x, atoms[particle].pos.y, atoms[particle].pos.z) # Save initial position
-
-    # Generates and ads random displacement
-    dr = RandomDisplacement(dimensions) 
-    atoms[particle].pos += dr
-    
-    # Checks if it's inside the box
-    if ((abs(atoms[particle].pos.x) > halfUsefullSpace) or 
-        (abs(atoms[particle].pos.y) > halfUsefullSpace) or 
-        (abs(atoms[particle].pos.z) > halfUsefullSpace)):
-        atoms[particle].pos = prevPos #discard movement
-        # If not inside the box, revert displacement and try again
-        continue
-
-    # Calculates energy before and after the displacement
-    atoms[particle].pos -= dr
-    u_i = EnergyOnlyParticleI(atoms, particle)
-    atoms[particle].pos += dr
-    u_f = EnergyOnlyParticleI(atoms, particle)
-
-
-    du = u_f - u_i
-    if ((du <= 0) or (random() < exp(-du))):
-        acceptedMovements += 1 #accept movement
-        # print(acceptedMovements)
-        # print((u_f + EnergyWithoutParticleI(atoms, particle))*epsilon)
+    # Metropolis acceptance criterion
+    if new_E > old_E:
+        rand = np.random.uniform()
+        if rand <= np.exp(-beta * (new_E - old_E)):
+            energy_list.append(new_E)
+        else:
+            velocities[idx, :] -= dv
+            energy_list.append(old_E)
     else:
-        atoms[particle].pos = prevPos #discard movement
+        energy_list.append(new_E)
+
+    iteration_list.append(step)
+
+# Theoretical internal energy for an ideal monoatomic gas
+U_theoretical = N * k_B * T * dimensions / 2
+
+# Accept only microstates close enough to equilibrium energy
+valid_energies = []
+record = False
+error_margin = 0.05
+first_valid_index = 0
+
+for E in energy_list:
+    rel_error = abs(E - U_theoretical) / abs(U_theoretical)
+    if not record and rel_error <= error_margin:
+        record = True
+        valid_energies.append(E)
+        first_valid_index = energy_list.index(E)
+    elif record:
+        valid_energies.append(E)
+
+# Compute average internal energy and its relative error
+U_exp = np.mean(valid_energies)
+U_rel_error = abs(U_exp - U_theoretical) / abs(U_theoretical) * 100
+
+# Compute experimental and theoretical heat capacity and error
+C_v_exp = (np.mean(np.array(valid_energies)**2) - np.mean(valid_energies)**2) / (k_B * T**2)
+C_v_theoretical = U_theoretical / T
+C_v_rel_error = abs(C_v_exp - C_v_theoretical) / C_v_theoretical * 100
+
+# Print results
+print(f"Experimental internal energy: {U_exp:.3e} J")
+print(f"Theoretical internal energy: {U_theoretical:.3e} J")
+print(f"Relative error in internal energy: {U_rel_error:.4f}%")
+print(f"Experimental heat capacity: {C_v_exp:.3e} J/K")
+print(f"Theoretical heat capacity: {C_v_theoretical:.3e} J/K")
+print(f"Relative error in heat capacity: {C_v_rel_error:.4f}%")
+
+# Plot energy evolution and mark valid states
+plt.plot(iteration_list, energy_list, label="Total energy of each microstate")
+valid_iterations = iteration_list[first_valid_index:]
+plt.plot(valid_iterations, valid_energies, color='green', label="Microstates used for C$_v$")
+plt.axhline(U_theoretical, linestyle='--', color='red', label="Theoretical internal energy")
+plt.xlabel("Number of iterations")
+plt.ylabel("Energy (J)")
+plt.grid()
+plt.legend(loc='lower right')
+plt.show()
